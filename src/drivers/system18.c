@@ -78,11 +78,11 @@ const char *const moonwalker_samples_set_names[] =
 	"bad-01",
 	"bad-02",
 	"smoothcriminal-01",
-	"smoothcriminal-02",	
+	"smoothcriminal-02",
 	"beatit-01",
 	"beatit-02",
 	"thriller-01",
-	"thriller-02",	
+	"thriller-02",
 	"billiejean-01",
 	"billiejean-02",
 	"title-01",
@@ -371,7 +371,7 @@ static WRITE16_HANDLER( sound_command_nmi_w ){
 					moonwalker_stop_samples = true;
 					mj_current_music = 0;
 					moon_diddy = false;
-					
+
 					break;
 
 				// Title screen stuff.
@@ -394,7 +394,7 @@ static WRITE16_HANDLER( sound_command_nmi_w ){
 						moonwalker_do_nothing = true;
 					else
 						sa_play_original = true;
-						
+
 					break;
 
 				// Title screen magic.
@@ -403,9 +403,9 @@ static WRITE16_HANDLER( sound_command_nmi_w ){
 						moonwalker_do_nothing = true;
 					else
 						sa_play_original = true;
-						
+
 					break;
-										
+
 				// Stage 1 and Stage 5. Bad.
 				case 0x81:
 					if(mj_current_music != 81) {
@@ -428,7 +428,7 @@ static WRITE16_HANDLER( sound_command_nmi_w ){
 						sa_right = 3;
 					}
 					else
-						moonwalker_do_nothing = true;						
+						moonwalker_do_nothing = true;
 					break;
 
 				// Stage 3. Beat It.
@@ -440,7 +440,7 @@ static WRITE16_HANDLER( sound_command_nmi_w ){
 						sa_right = 5;
 					}
 					else
-						moonwalker_do_nothing = true;						
+						moonwalker_do_nothing = true;
 					break;
 
 				// Stage 4. Thriller.
@@ -452,7 +452,7 @@ static WRITE16_HANDLER( sound_command_nmi_w ){
 						sa_right = 7;
 					}
 					else
-						moonwalker_do_nothing = true;						
+						moonwalker_do_nothing = true;
 					break;
 
 				// Ending. Billie Jean.
@@ -464,7 +464,7 @@ static WRITE16_HANDLER( sound_command_nmi_w ){
 						sa_right = 9;
 					}
 					else
-						moonwalker_do_nothing = true;						
+						moonwalker_do_nothing = true;
 					break;
 
 				// First boss music
@@ -480,8 +480,8 @@ static WRITE16_HANDLER( sound_command_nmi_w ){
 				// Third boss music
 				case 0x8E:
 						moonwalker_do_nothing = true;
-					break;										
-							
+					break;
+
 				// Special move music diddy.
 				case 0xFA:
 						moonwalker_play_default = true;
@@ -515,7 +515,7 @@ static WRITE16_HANDLER( sound_command_nmi_w ){
 						else if(sample_playing(0) == 1 && sample_playing(1) == 1) {
 							sample_set_stereo_volume(0, mj_fade, 0);
 							sample_set_stereo_volume(1, 0, mj_fade);
-						}						
+						}
 					break;
 
 				// Special move music diddy.
@@ -533,13 +533,13 @@ static WRITE16_HANDLER( sound_command_nmi_w ){
 						else if(sample_playing(0) == 1 && sample_playing(1) == 1) {
 							sample_set_stereo_volume(0, mj_fade, 0);
 							sample_set_stereo_volume(1, 0, mj_fade);
-						}						
-					break;									
+						}
+					break;
 
 				// Special move "owww" sound effect. This plays after the special move has always finished.
 				case 0xC3:
 						moonwalker_play_default = true;
-						
+
 						if(moon_diddy == true) {
 							moon_diddy = false;
 
@@ -553,10 +553,10 @@ static WRITE16_HANDLER( sound_command_nmi_w ){
 							else if(sample_playing(0) == 1 && sample_playing(1) == 1) {
 								sample_set_stereo_volume(0, 100, 0);
 								sample_set_stereo_volume(1, 0, 100);
-							}							
-						}						
+							}
+						}
 					break;
-				
+
 				default:
 					soundlatch_w( 0,data&0xff );
 					cpu_set_nmi_line(1, PULSE_LINE);
@@ -566,14 +566,14 @@ static WRITE16_HANDLER( sound_command_nmi_w ){
 
 			if(sa_play_sample == true) {
 				a = 0;
-					
+
 				for(a = 0; a <= o_max_samples; a++) {
 					sample_stop(a);
 				}
-				
+
 				sample_start(0, sa_left, sa_loop);
 				sample_start(1, sa_right, sa_loop);
-				
+
 				// Determine how we should mix these samples together.
 				if(sample_playing(0) == 0 && sample_playing(1) == 1) { // Right channel only. Lets make it play in both speakers.
 					sample_set_stereo_volume(1, 100, 100);
@@ -617,7 +617,7 @@ static WRITE16_HANDLER( sound_command_nmi_w ){
 				mj_current_music = 0;
 				soundlatch_w( 0,data&0xff );
 				cpu_set_nmi_line(1, PULSE_LINE);
-			}			
+			}
 		}
 		else {
 			soundlatch_w( 0,data&0xff );
@@ -1410,7 +1410,7 @@ static MEMORY_READ16_START( astorm_readmem )
 MEMORY_END
 
 static MEMORY_WRITE16_START( astorm_writemem )
-    { 0x000000, 0x07ffff, MWA16_ROM },
+  { 0x000000, 0x07ffff, MWA16_ROM },
 	{ 0x100000, 0x10ffff, SYS16_MWA16_TILERAM, &sys16_tileram },
 	{ 0x110000, 0x110fff, SYS16_MWA16_TEXTRAM, &sys16_textram },
 	{ 0x140000, 0x140fff, SYS16_MWA16_PALETTERAM, &paletteram16 },
@@ -1423,6 +1423,31 @@ static MEMORY_WRITE16_START( astorm_writemem )
 	{ 0xffc000, 0xffffff, SYS16_MWA16_WORKINGRAM, &sys16_workingram },
 MEMORY_END
 
+
+static MEMORY_READ16_START( ddcrew_readmem )
+{ 0x000000, 0x2fffff, MRA16_ROM },
+{ 0x400000, 0x40ffff, SYS16_MRA16_TILERAM },
+{ 0x410000, 0x410fff, SYS16_MRA16_TEXTRAM },
+{ 0x840000, 0x840fff, SYS16_MRA16_PALETTERAM },
+{ 0x440000, 0x440fff, SYS16_MRA16_SPRITERAM },
+{ 0xe40000, 0xe4ffff, sys18_io_r },
+{ 0xc00000, 0xc0ffff, vdp_r },
+{ 0xffc000, 0xffffff, SYS16_MRA16_WORKINGRAM },
+MEMORY_END
+
+static MEMORY_WRITE16_START(  ddcrew_writemem )
+{ 0x000000, 0x2fffff, MWA16_ROM },
+{ 0x400000, 0x40ffff, SYS16_MWA16_TILERAM, &sys16_tileram },
+{ 0x410000, 0x410fff, SYS16_MWA16_TEXTRAM, &sys16_textram },
+{ 0x840000, 0x840fff, SYS16_MWA16_PALETTERAM, &paletteram16 },
+{ 0x440000, 0x440fff, SYS16_MWA16_SPRITERAM, &sys16_spriteram },
+{ 0xe40006, 0xe40007, sound_command_nmi_w },
+//	AM_RANGE(0xe4000e, 0xe4000f) AM_WRITE(sys18_tilebank_w)
+{ 0xc00000, 0xc0ffff, vdp_w },
+{ 0xc46600, 0xc46601, sys18_refreshenable_w },
+{ 0xfe0020, 0xfe003f, MWA16_NOP },
+{ 0xffc000, 0xffffff, SYS16_MWA16_WORKINGRAM, &sys16_workingram },
+MEMORY_END
 /***************************************************************************/
 
 static void astorm_update_proc( void ){
@@ -1557,6 +1582,20 @@ static DRIVER_INIT( astorm ){
 	memcpy(RAM,&RAM[0x10000],0xa000);
 }
 
+
+static MACHINE_INIT( ddcrew )
+{
+
+	sys16_fgxoffset = sys16_bgxoffset = -9;
+	sys16_update_proc = shdancer_update_proc;
+}
+
+static DRIVER_INIT( ddcrew )
+{
+	machine_init_sys16_onetime();
+
+
+}
 /*****************************************************************************/
 
 static MACHINE_DRIVER_START( system18 )
@@ -1599,6 +1638,15 @@ static MACHINE_DRIVER_START( astorm )
 	MDRV_MACHINE_INIT(astorm)
 MACHINE_DRIVER_END
 
+static MACHINE_DRIVER_START( ddcrew )
+
+	/* basic machine hardware */
+	MDRV_IMPORT_FROM(system18)
+	MDRV_CPU_MODIFY("main")
+	MDRV_CPU_MEMORY(ddcrew_readmem,ddcrew_writemem)
+
+	MDRV_MACHINE_INIT(ddcrew)
+MACHINE_DRIVER_END
 
 static MACHINE_DRIVER_START( moonwalk )
 
@@ -1969,11 +2017,11 @@ ROM_END
 
 // DD Crew
 ROM_START( ddcrew )
-	ROM_REGION( 0x100000, REGION_CPU1, 0 ) /* 68000 code */
-	ROM_LOAD16_BYTE( "14153.6a", 0x000000, 0x40000, CRC(e01fae0c) SHA1(7166f955324f73e94d8ae6d2a5b2f4b497e62933) )
-	ROM_LOAD16_BYTE( "14152.4a", 0x000001, 0x40000, CRC(69c7b571) SHA1(9fe4815a1cff0a46a754a6bdee12abaf7beb6501) )
-	ROM_LOAD16_BYTE( "14141.7a", 0x080000, 0x40000, CRC(080a494b) SHA1(64522dccbf6ed856ab80aa185454183df87d7ae9) )
-	ROM_LOAD16_BYTE( "14139.5a", 0x080001, 0x40000, CRC(06c31531) SHA1(d084cb72bf83578b34e959bb60a0695faf4161f8) )
+	ROM_REGION( 0x300000, REGION_CPU1, 0 ) /* 68000 code */
+	ROM_LOAD16_BYTE( "x14152.4a", 0x000000, 0x40000, CRC(69c7b571) SHA1(9fe4815a1cff0a46a754a6bdee12abaf7beb6501) )
+	ROM_LOAD16_BYTE( "x14153.6a", 0x000001, 0x40000, CRC(e01fae0c) SHA1(7166f955324f73e94d8ae6d2a5b2f4b497e62933) )
+	ROM_LOAD16_BYTE( "14139.5a", 0x200000, 0x40000, CRC(06c31531) SHA1(d084cb72bf83578b34e959bb60a0695faf4161f8) )
+	ROM_LOAD16_BYTE( "14141.7a", 0x200001, 0x40000, CRC(080a494b) SHA1(64522dccbf6ed856ab80aa185454183df87d7ae9) )
 
 	ROM_REGION( 0xc0000, REGION_GFX1, ROMREGION_DISPOSE ) /* tiles */
 	ROM_LOAD( "14127.1c", 0x00000, 0x40000, CRC(2228cd88) SHA1(5774bb6a401c3da05c5f3c9d3996b20bb3713cb2) )
@@ -1996,6 +2044,7 @@ ROM_START( ddcrew )
 	ROM_LOAD( "14131.5c",    0x0a0000, 0x80000, CRC(be5a7d0b) SHA1(c2c598b0cf711273fdd568f3401375e9772c1d61) )
 	ROM_LOAD( "14132.6c",    0x120000, 0x80000, CRC(1fae0220) SHA1(8414c74318ea915816c6b67801ac7c8c3fc905f9) )
 ROM_END
+
 
 // Laser Ghost
 ROM_START( lghost )
@@ -2281,5 +2330,5 @@ GAME( 1989, shdancrb, shdancer, shdancrb, shdancer, shdancrb, ROT0, "Sega",    "
 
 GAMEX(1990, bloxeed,  0,        shdancer, shdancer, shdancer, ROT0, "Sega", "Bloxeed", GAME_NOT_WORKING )
 GAMEX(19??, cltchitr, 0,        shdancer, shdancer, shdancer, ROT0, "Sega", "Clutch Hitter", GAME_NOT_WORKING )
-GAMEX(19??, ddcrew,   0,        shdancer, shdancer, shdancer, ROT0, "Sega", "DD Crew", GAME_NOT_WORKING )
+GAMEX(19??, ddcrew,   0,        ddcrew, shdancer, ddcrew, ROT0, "Sega", "DD Crew", GAME_NOT_WORKING )
 GAMEX(19??, lghost,   0,        shdancer, shdancer, shdancer, ROT0, "Sega", "Laser Ghost", GAME_NOT_WORKING )
