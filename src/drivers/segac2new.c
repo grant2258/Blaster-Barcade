@@ -803,7 +803,7 @@ static MEMORY_READ16_START( main_readmem )
 	{ 0xc00000, 0xc0001f, genesis_vdp_r },
 	{ 0xd8ff00, 0xd8ff1f, genesis_vdp_r }, //mirror
 	{ 0xe00000, 0xe0ffff, MRA16_RAM },
-	{ 0xff0000, 0xffffff, MRA16_RAM }, //mirror
+	{ 0xfe0000, 0xffffff, MRA16_RAM }, //mirror
 MEMORY_END
 
 static MEMORY_WRITE16_START( main_writemem )
@@ -827,7 +827,7 @@ static MEMORY_WRITE16_START( main_writemem )
 	{ 0xc00010, 0xc00017, sn76489_w },
 	{ 0xd8ff10, 0xd8ff17, sn76489_w }, //mirror
 	{ 0xe00000, 0xe0ffff, MWA16_RAM, (data16_t **)&generic_nvram, &generic_nvram_size },
-	{ 0xff0000, 0xffffff, MWA16_RAM, (data16_t **)&generic_nvram, &generic_nvram_size }, //mirror
+	{ 0xfe0000, 0xffffff, MWA16_RAM, (data16_t **)&generic_nvram, &generic_nvram_size }, //mirror
 MEMORY_END
 
 
@@ -853,7 +853,7 @@ INPUT_PORTS_START( twinsqua )
 
     PORT_START
 	PORT_ANALOG( 0xff, 0x00, IPT_DIAL | IPF_PLAYER2, 30, 15, 0, 0)
-	
+
 	PORT_START
 	PORT_BIT( 0x3f, IP_ACTIVE_LOW, IPT_UNUSED )
 	PORT_BIT( 0x40, IP_ACTIVE_LOW, IPT_SPECIAL )	/* From uPD7759 pin 18. (/BUSY output) */
@@ -1203,7 +1203,7 @@ static void common_init(const UINT32 *table)
 {
 	prot_table = table;
 	bloxeed_sound = 0;
-	
+
 	state_save_register_UINT8 ("genesis", 0, "Int 2 Status", &irq2_int, 1);
 	state_save_register_UINT8 ("genesis", 0, "Int 4 Status", &scanline_int, 1);
 	state_save_register_UINT8 ("genesis", 0, "Int 6 Status", &vblank_int, 1);
