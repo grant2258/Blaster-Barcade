@@ -2164,8 +2164,8 @@ V-V                           TP-027
 	DRIVER( rockmanj )	/* 22/09/1995 (c) 1995 (Japan) */
 
   /* CPS Prototype */
-	DRIVER( gulunpa )   /* (c) 1993 (prototype) */  
-		
+	DRIVER( gulunpa )   /* (c) 1993 (prototype) */
+
   /* Capcom CPS Changer */
 	DRIVER( wofch )		/* 31/10/1992 (c) 1992 (Japan) (CPS1 + QSound) */
 
@@ -4216,7 +4216,7 @@ BOMULEUL CHAJARA SEGA ST-V  1997/04/11
 	DRIVER( aso )		/*            (c) 1985 */
 	DRIVER( tnk3 )		/* A5001      (c) 1985 */
 	DRIVER( tnk3j )		/* A5001      (c) 1985 */
-	DRIVER( tnk3b )		/* bootleg    (c) 1985 */    
+	DRIVER( tnk3b )		/* bootleg    (c) 1985 */
 	DRIVER( athena )	/*       'UP' (c) 1986 */
 	DRIVER( fitegolf )	/*       'GU' (c) 1988 */
 	DRIVER( fitegol2 )	/*       'GU' (c) 1988 */
@@ -5826,5 +5826,8 @@ Other Sun games
   	/* Current Tech */
 	DRIVER( mirax )	  /* (c) Current Technologies */
 	DRIVER( miraxa )  /* (c) Current Technologies */
-
+// add these in the right place ast some point
+  DRIVER(headonch)
+  DRIVER(ooparts)
+  DRIVER(twinsqua)
 #endif	/* DRIVER_RECURSIVE */
