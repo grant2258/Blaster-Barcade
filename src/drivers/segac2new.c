@@ -80,13 +80,13 @@
 #include "machine/random.h"
 #include "genesis.h"
 
-#define XL1_CLOCK			640000
-#define XL2_CLOCK			53693175
+#define XL1_CLOCK     640000
+#define XL2_CLOCK     53693175
 
 
-#define LOG_PROTECTION		0
-#define LOG_PALETTE			0
-#define LOG_IOCHIP			0
+#define LOG_PROTECTION    0
+#define LOG_PALETTE     0
+#define LOG_IOCHIP      0
 
 
 /******************************************************************************
@@ -94,29 +94,29 @@
 ******************************************************************************/
 
 /* interrupt states */
-static UINT8		irq2_int;			/* INT2 */
-static UINT8		scanline_int;		/* INT4 - programmable */
-static UINT8		vblank_int;			/* INT6 - on every VBLANK */
+static UINT8    irq2_int;     /* INT2 */
+static UINT8    scanline_int;   /* INT4 - programmable */
+static UINT8    vblank_int;     /* INT6 - on every VBLANK */
 
-static mame_timer *	scan_timer;
+static mame_timer * scan_timer;
 
 /* internal states */
-static UINT8 		misc_io_data[0x10];	/* holds values written to the I/O chip */
+static UINT8    misc_io_data[0x10]; /* holds values written to the I/O chip */
 
 /* protection-related tracking */
-static const UINT32 *prot_table;		/* table of protection values */
-static UINT8 		prot_write_buf;		/* remembers what was written */
-static UINT8		prot_read_buf;		/* remembers what was returned */
+static const UINT32 *prot_table;    /* table of protection values */
+static UINT8    prot_write_buf;   /* remembers what was written */
+static UINT8    prot_read_buf;    /* remembers what was returned */
 
 /* palette-related variables */
-static UINT8		alt_palette_mode;
-static UINT8		palbank;
-static UINT8		bg_palbase;
-static UINT8		sp_palbase;
+static UINT8    alt_palette_mode;
+static UINT8    palbank;
+static UINT8    bg_palbase;
+static UINT8    sp_palbase;
 
 /* sound-related variables */
-static UINT8		sound_banks;		/* number of sound banks */
-static UINT8		bloxeed_sound;		/* use kludge for bloxeed sound? */
+static UINT8    sound_banks;    /* number of sound banks */
+static UINT8    bloxeed_sound;    /* use kludge for bloxeed sound? */
 
 
 /******************************************************************************
@@ -150,78 +150,78 @@ static UINT8		bloxeed_sound;		/* use kludge for bloxeed sound? */
 /* call this whenever the interrupt state has changed */
 static void update_interrupts(void)
 {
-	int level = 0;
+  int level = 0;
 
-	/* determine which interrupt is active */
-	if (irq2_int) level = 2;
-	if (scanline_int) level = 4;
-	if (vblank_int) level = 6;
+  /* determine which interrupt is active */
+  if (irq2_int) level = 2;
+  if (scanline_int) level = 4;
+  if (vblank_int) level = 6;
 
-	/* either set or clear the appropriate lines */
-	if (level)
-		cpu_set_irq_line(0, level, ASSERT_LINE);
-	else
-		cpu_set_irq_line(0, 7, CLEAR_LINE);
+  /* either set or clear the appropriate lines */
+  if (level)
+    cpu_set_irq_line(0, level, ASSERT_LINE);
+  else
+    cpu_set_irq_line(0, 7, CLEAR_LINE);
 }
 
 
 /* timer callback to turn off the IRQ4 signal after a short while */
 static void vdp_int4_off(int param)
 {
-	scanline_int = 0;
-	update_interrupts();
+  scanline_int = 0;
+  update_interrupts();
 }
 
 
 /* timer callback to handle reloading the H counter and generate IRQ4 */
 void vdp_reload_counter(int scanline)
 {
-	/* generate an int if they're enabled */
-	if (genesis_vdp_regs[0] & 0x10)/* && !(misc_io_data[7] & 0x10))*/
-		if (scanline != 0 || genesis_vdp_regs[10] == 0)
-		{
-			scanline_int = 1;
-			update_interrupts();
-			timer_set(cpu_getscanlinetime(scanline + 1), 0, vdp_int4_off);
-		}
+  /* generate an int if they're enabled */
+  if (genesis_vdp_regs[0] & 0x10)/* && !(misc_io_data[7] & 0x10))*/
+    if (scanline != 0 || genesis_vdp_regs[10] == 0)
+    {
+      scanline_int = 1;
+      update_interrupts();
+      timer_set(cpu_getscanlinetime(scanline + 1), 0, vdp_int4_off);
+    }
 
-	/* advance to the next scanline */
-	/* behavior 2: 0 count means interrupt after one scanline */
-	/* (this behavior matches the Sega C2 emulator) */
-	scanline += genesis_vdp_regs[10] + 1;
-	if (scanline >= 224)
-		scanline = 0;
+  /* advance to the next scanline */
+  /* behavior 2: 0 count means interrupt after one scanline */
+  /* (this behavior matches the Sega C2 emulator) */
+  scanline += genesis_vdp_regs[10] + 1;
+  if (scanline >= 224)
+    scanline = 0;
 
-	/* set a timer */
-	timer_adjust(scan_timer, cpu_getscanlinetime(scanline) + cpu_getscanlineperiod() * (320. / 342.), scanline, 0);
+  /* set a timer */
+  timer_adjust(scan_timer, cpu_getscanlinetime(scanline) + cpu_getscanlineperiod() * (320. / 342.), scanline, 0);
 }
 
 
 /* timer callback to turn off the IRQ6 signal after a short while */
 static void vdp_int6_off(int param)
 {
-	vblank_int = 0;
-	update_interrupts();
+  vblank_int = 0;
+  update_interrupts();
 }
 
 
 /* interrupt callback to generate the VBLANK interrupt */
 INTERRUPT_GEN( genesis_vblank_interrupt )
 {
-	/* generate the interrupt */
-	vblank_int = 1;
-	update_interrupts();
+  /* generate the interrupt */
+  vblank_int = 1;
+  update_interrupts();
 
-	/* set a timer to turn it off */
-	timer_set(cpu_getscanlineperiod() * (22. / 342.), 0, vdp_int6_off);
+  /* set a timer to turn it off */
+  timer_set(cpu_getscanlineperiod() * (22. / 342.), 0, vdp_int6_off);
 }
 
 
 /* interrupt callback to generate the YM3438 interrupt */
 void genesis_irq2_interrupt(int state)
 {
-	irq2_int = state;
-	update_interrupts();
+  irq2_int = state;
+  update_interrupts();
 }
 
 
@@ -237,24 +237,24 @@ void genesis_irq2_interrupt(int state)
 MACHINE_INIT( segac2new )
 {
 
-	/* set the first scanline 0 timer to go off */
-	scan_timer = timer_alloc(vdp_reload_counter);
-	timer_adjust(scan_timer, cpu_getscanlinetime(0) + cpu_getscanlineperiod() * (320. / 342.), 0, 0);
+  /* set the first scanline 0 timer to go off */
+  scan_timer = timer_alloc(vdp_reload_counter);
+  timer_adjust(scan_timer, cpu_getscanlinetime(0) + cpu_getscanlineperiod() * (320. / 342.), 0, 0);
 
 
-	/* determine how many sound banks */
-	sound_banks = 0;
-	if (memory_region(REGION_SOUND1))
-		sound_banks = memory_region_length(REGION_SOUND1) / 0x20000;
+  /* determine how many sound banks */
+  sound_banks = 0;
+  if (memory_region(REGION_SOUND1))
+    sound_banks = memory_region_length(REGION_SOUND1) / 0x20000;
 
-	/* reset the protection */
-	prot_write_buf = 0;
-	prot_read_buf = 0;
-	alt_palette_mode = 0;
+  /* reset the protection */
+  prot_write_buf = 0;
+  prot_read_buf = 0;
+  alt_palette_mode = 0;
 
-	palbank = 0;
-	bg_palbase = 0;
-	sp_palbase = 0;
+  palbank = 0;
+  bg_palbase = 0;
+  sp_palbase = 0;
 }
 
 
@@ -274,66 +274,66 @@ MACHINE_INIT( segac2new )
 /* handle reads from the YM3438 */
 static READ16_HANDLER( ym3438_r )
 {
-	switch (offset)
-	{
-		case 0: return YM2612_status_port_0_A_r(0);
-		case 1: return YM2612_read_port_0_r(0);
-		case 2: return YM2612_status_port_0_B_r(0);
-	}
-	return 0xff;
+  switch (offset)
+  {
+    case 0: return YM2612_status_port_0_A_r(0);
+    case 1: return YM2612_read_port_0_r(0);
+    case 2: return YM2612_status_port_0_B_r(0);
+  }
+  return 0xff;
 }
 
 /* handle writes to the YM3438 */
 static WRITE16_HANDLER( ym3438_w )
 {
-	/* only works if we're accessing the low byte */
-	if (ACCESSING_LSB)
-	{
-		static UINT8 last_port;
+  /* only works if we're accessing the low byte */
+  if (ACCESSING_LSB)
+  {
+    static UINT8 last_port;
 
-		/* kludge for Bloxeed - it seems to accidentally trip timer 2  */
-		/* and has no recourse for clearing the interrupt; until we    */
-		/* find more documentation on the 2612/3438, it's unknown what */
-		/* to do here */
-		if (bloxeed_sound && last_port == 0x27 && (offset & 1))
-			data &= ~0x08;
+    /* kludge for Bloxeed - it seems to accidentally trip timer 2  */
+    /* and has no recourse for clearing the interrupt; until we    */
+    /* find more documentation on the 2612/3438, it's unknown what */
+    /* to do here */
+    if (bloxeed_sound && last_port == 0x27 && (offset & 1))
+      data &= ~0x08;
 
-		switch (offset)
-		{
-			case 0: YM2612_control_port_0_A_w(0, data & 0xff);	last_port = data;	break;
-			case 1: YM2612_data_port_0_A_w(0, data & 0xff);							break;
-			case 2: YM2612_control_port_0_B_w(0, data & 0xff);	last_port = data;	break;
-			case 3: YM2612_data_port_0_B_w(0, data & 0xff);							break;
-		}
-	}
+    switch (offset)
+    {
+      case 0: YM2612_control_port_0_A_w(0, data & 0xff);  last_port = data; break;
+      case 1: YM2612_data_port_0_A_w(0, data & 0xff);             break;
+      case 2: YM2612_control_port_0_B_w(0, data & 0xff);  last_port = data; break;
+      case 3: YM2612_data_port_0_B_w(0, data & 0xff);             break;
+    }
+  }
 }
 
 
 /* handle writes to the UPD7759 */
 static WRITE16_HANDLER( segac2new_upd7759_w )
 {
-	/* make sure we have a UPD chip */
-	if (!sound_banks)
-		return;
+  /* make sure we have a UPD chip */
+  if (!sound_banks)
+    return;
 
-	/* only works if we're accessing the low byte */
-	if (ACCESSING_LSB)
-	{
-		UPD7759_reset_w(0, 0);
-		UPD7759_reset_w(0, 1);
-		UPD7759_port_w(0, data & 0xff);
-		UPD7759_start_w(0, 0);
-		UPD7759_start_w(0, 1);
-	}
+  /* only works if we're accessing the low byte */
+  if (ACCESSING_LSB)
+  {
+    UPD7759_reset_w(0, 0);
+    UPD7759_reset_w(0, 1);
+    UPD7759_port_w(0, data & 0xff);
+    UPD7759_start_w(0, 0);
+    UPD7759_start_w(0, 1);
+  }
 }
 
 
 /* handle writes to the SN764896 */
 WRITE16_HANDLER( sn76489_w )
 {
-	/* only works if we're accessing the low byte */
-	if (ACCESSING_LSB)
-		SN76496_0_w(0, data & 0xff);
+  /* only works if we're accessing the low byte */
+  if (ACCESSING_LSB)
+    SN76496_0_w(0, data & 0xff);
 }
 
 
@@ -358,38 +358,38 @@ WRITE16_HANDLER( sn76489_w )
 /* handle reads from the paletteram */
 static READ16_HANDLER( palette_r )
 {
-	offset &= 0x1ff;
-	if (alt_palette_mode)
-		offset = ((offset << 1) & 0x100) | ((offset << 2) & 0x80) | ((~offset >> 2) & 0x40) | ((offset >> 1) & 0x20) | (offset & 0x1f);
-	return paletteram16[offset + palbank * 0x200];
+  offset &= 0x1ff;
+  if (alt_palette_mode)
+    offset = ((offset << 1) & 0x100) | ((offset << 2) & 0x80) | ((~offset >> 2) & 0x40) | ((offset >> 1) & 0x20) | (offset & 0x1f);
+  return paletteram16[offset + palbank * 0x200];
 }
 
 
 /* handle writes to the paletteram */
 static WRITE16_HANDLER( palette_w )
 {
-	int r,g,b,newword;
+  int r,g,b,newword;
 
-	/* adjust for the palette bank */
-	offset &= 0x1ff;
-	if (alt_palette_mode)
-		offset = ((offset << 1) & 0x100) | ((offset << 2) & 0x80) | ((~offset >> 2) & 0x40) | ((offset >> 1) & 0x20) | (offset & 0x1f);
-	offset += palbank * 0x200;
+  /* adjust for the palette bank */
+  offset &= 0x1ff;
+  if (alt_palette_mode)
+    offset = ((offset << 1) & 0x100) | ((offset << 2) & 0x80) | ((~offset >> 2) & 0x40) | ((offset >> 1) & 0x20) | (offset & 0x1f);
+  offset += palbank * 0x200;
 
-	/* combine data */
-	COMBINE_DATA(&paletteram16[offset]);
-	newword = paletteram16[offset];
+  /* combine data */
+  COMBINE_DATA(&paletteram16[offset]);
+  newword = paletteram16[offset];
 
-	/* up to 8 bits */
-	r = ((newword << 4) & 0xf0) | ((newword >>  9) & 0x08);
-	g = ((newword >> 0) & 0xf0) | ((newword >> 10) & 0x08);
-	b = ((newword >> 4) & 0xf0) | ((newword >> 11) & 0x08);
-	r |= r >> 5;
-	g |= g >> 5;
-	b |= b >> 5;
+  /* up to 8 bits */
+  r = ((newword << 4) & 0xf0) | ((newword >>  9) & 0x08);
+  g = ((newword >> 0) & 0xf0) | ((newword >> 10) & 0x08);
+  b = ((newword >> 4) & 0xf0) | ((newword >> 11) & 0x08);
+  r |= r >> 5;
+  g |= g >> 5;
+  b |= b >> 5;
 
-	/* set the color */
-	palette_set_color(offset, r, g, b);
+  /* set the color */
+  palette_set_color(offset, r, g, b);
 }
 
 
@@ -426,24 +426,24 @@ static WRITE16_HANDLER( palette_w )
 
 static void recompute_palette_tables(void)
 {
-	int i;
+  int i;
 
-	for (i = 0; i < 4; i++)
-	{
-		int bgpal = 0x000 + bg_palbase * 0x40 + i * 0x10;
-		int sppal = 0x100 + sp_palbase * 0x40 + i * 0x10;
+  for (i = 0; i < 4; i++)
+  {
+    int bgpal = 0x000 + bg_palbase * 0x40 + i * 0x10;
+    int sppal = 0x100 + sp_palbase * 0x40 + i * 0x10;
 
-		if (!alt_palette_mode)
-		{
-			genesis_bg_pal_lookup[i] = palbank * 0x200 + bgpal;
-			genesis_sp_pal_lookup[i] = palbank * 0x200 + sppal;
-		}
-		else
-		{
-			genesis_bg_pal_lookup[i] = palbank * 0x200 + ((bgpal << 1) & 0x180) + ((~bgpal >> 2) & 0x40) + (bgpal & 0x30);
-			genesis_sp_pal_lookup[i] = palbank * 0x200 + ((~sppal << 2) & 0x100) + ((sppal << 2) & 0x80) + ((~sppal >> 2) & 0x40) + ((sppal >> 2) & 0x20) + (sppal & 0x10);
-		}
-	}
+    if (!alt_palette_mode)
+    {
+      genesis_bg_pal_lookup[i] = palbank * 0x200 + bgpal;
+      genesis_sp_pal_lookup[i] = palbank * 0x200 + sppal;
+    }
+    else
+    {
+      genesis_bg_pal_lookup[i] = palbank * 0x200 + ((bgpal << 1) & 0x180) + ((~bgpal >> 2) & 0x40) + (bgpal & 0x30);
+      genesis_sp_pal_lookup[i] = palbank * 0x200 + ((~sppal << 2) & 0x100) + ((sppal << 2) & 0x80) + ((~sppal >> 2) & 0x40) + ((sppal >> 2) & 0x20) + (sppal & 0x10);
+    }
+  }
 }
 
 
@@ -462,76 +462,76 @@ static void recompute_palette_tables(void)
 
 static READ16_HANDLER( io_chip_r )
 {
-	offset &= 0x1f/2;
+  offset &= 0x1f/2;
 
-	switch (offset)
-	{
-		/* I/O ports */
-		case 0x00/2:
-		case 0x02/2:
-		case 0x04/2:
-		case 0x06/2:
-		case 0x08/2:
-		case 0x0a/2:
-		case 0x0c/2:
-		case 0x0e/2:
-			/* if the port is configured as an output, return the last thing written */
-			if (misc_io_data[0x1e/2] & (1 << offset))
-				return misc_io_data[offset];
+  switch (offset)
+  {
+    /* I/O ports */
+    case 0x00/2:
+    case 0x02/2:
+    case 0x04/2:
+    case 0x06/2:
+    case 0x08/2:
+    case 0x0a/2:
+    case 0x0c/2:
+    case 0x0e/2:
+      /* if the port is configured as an output, return the last thing written */
+      if (misc_io_data[0x1e/2] & (1 << offset))
+        return misc_io_data[offset];
 
-			/* otherwise, return an input port */
-			if (offset == 0x04/2 && sound_banks)
-				return (readinputport(offset) & 0xbf) | (UPD7759_0_busy_r(0) << 6);
-			return readinputport(offset);
+      /* otherwise, return an input port */
+      if (offset == 0x04/2 && sound_banks)
+        return (readinputport(offset) & 0xbf) | (UPD7759_0_busy_r(0) << 6);
+      return readinputport(offset);
 
-		/* 'SEGA' protection */
-		case 0x10/2:
-			return 'S';
-		case 0x12/2:
-			return 'E';
-		case 0x14/2:
-			return 'G';
-		case 0x16/2:
-			return 'A';
+    /* 'SEGA' protection */
+    case 0x10/2:
+      return 'S';
+    case 0x12/2:
+      return 'E';
+    case 0x14/2:
+      return 'G';
+    case 0x16/2:
+      return 'A';
 
-		/* CNT register & mirror */
-		case 0x18/2:
-		case 0x1c/2:
-			return misc_io_data[0x1c/2];
+    /* CNT register & mirror */
+    case 0x18/2:
+    case 0x1c/2:
+      return misc_io_data[0x1c/2];
 
-		/* port direction register & mirror */
-		case 0x1a/2:
-		case 0x1e/2:
-			return misc_io_data[0x1e/2];
-	}
-	return 0xffff;
+    /* port direction register & mirror */
+    case 0x1a/2:
+    case 0x1e/2:
+      return misc_io_data[0x1e/2];
+  }
+  return 0xffff;
 }
 
 
 static WRITE16_HANDLER( io_chip_w )
 {
-	UINT8 newbank;
-	UINT8 old;
+  UINT8 newbank;
+  UINT8 old;
 
-	/* generic implementation */
-	offset &= 0x1f/2;
-	old = misc_io_data[offset];
-	misc_io_data[offset] = data;
+  /* generic implementation */
+  offset &= 0x1f/2;
+  old = misc_io_data[offset];
+  misc_io_data[offset] = data;
 
-	switch (offset)
-	{
-		/* I/O ports */
-		case 0x00/2:
-		case 0x02/2:
-		case 0x04/2:
-		case 0x08/2:
-		case 0x0a/2:
-		case 0x0c/2:
-			break;
+  switch (offset)
+  {
+    /* I/O ports */
+    case 0x00/2:
+    case 0x02/2:
+    case 0x04/2:
+    case 0x08/2:
+    case 0x0a/2:
+    case 0x0c/2:
+      break;
 
-		/* miscellaneous output */
-		case 0x06/2:
-			/*
+    /* miscellaneous output */
+    case 0x06/2:
+      /*
              D7 : To pin 3 of JP15. (Watchdog clock control)
              D6 : To MUTE input pin on TDA1518BQ amplifier.
              D5 : To CN2 pin 10. (Unknown purpose)
@@ -543,13 +543,13 @@ static WRITE16_HANDLER( io_chip_w )
             */
 /*          coin_lockout_w(1, data & 0x08);
             coin_lockout_w(0, data & 0x04); */
-			coin_counter_w(1, data & 0x02);
-			coin_counter_w(0, data & 0x01);
-			break;
+      coin_counter_w(1, data & 0x02);
+      coin_counter_w(0, data & 0x01);
+      break;
 
-		/* banking */
-		case 0x0e/2:
-			/*
+    /* banking */
+    case 0x0e/2:
+      /*
              D7 : To pin A19 of CN4
              D6 : To pin B19 of CN4
              D5 : ?
@@ -559,24 +559,24 @@ static WRITE16_HANDLER( io_chip_w )
              D1 : To A10 of color RAM
              D0 : To A9 of color RAM
             */
-			newbank = data & 3;
-			if (newbank != palbank)
-			{
-				force_partial_update(cpu_getscanline() + 1);
-				palbank = newbank;
-				recompute_palette_tables();
-			}
-			if (sound_banks > 1)
-			{
-				newbank = (data >> 2) & (sound_banks - 1);
-				UPD7759_set_bank_base(0, newbank * 0x20000);
-			}
-			break;
+      newbank = data & 3;
+      if (newbank != palbank)
+      {
+        force_partial_update(cpu_getscanline() + 1);
+        palbank = newbank;
+        recompute_palette_tables();
+      }
+      if (sound_banks > 1)
+      {
+        newbank = (data >> 2) & (sound_banks - 1);
+        UPD7759_set_bank_base(0, newbank * 0x20000);
+      }
+      break;
 
-		/* CNT register */
-		case 0x1c/2:
-			break;
-	}
+    /* CNT register */
+    case 0x1c/2:
+      break;
+  }
 }
 
 
@@ -593,21 +593,21 @@ static WRITE16_HANDLER( io_chip_w )
 
 static WRITE16_HANDLER( control_w )
 {
-	/* skip if not LSB */
-	if (!ACCESSING_LSB)
-		return;
-	data &= 0x0f;
+  /* skip if not LSB */
+  if (!ACCESSING_LSB)
+    return;
+  data &= 0x0f;
 
-	/* bit 0 controls display enable */
-	genesis_enable_display(~data & 1);
+  /* bit 0 controls display enable */
+  genesis_enable_display(~data & 1);
 
-	/* bit 1 resets the protection */
-	if (!(data & 2))
-		prot_write_buf = prot_read_buf = 0;
+  /* bit 1 resets the protection */
+  if (!(data & 2))
+    prot_write_buf = prot_read_buf = 0;
 
-	/* bit 2 controls palette shuffling; only ribbit and twinsqua use this feature */
-	alt_palette_mode = ((~data & 4) >> 2);
-	recompute_palette_tables();
+  /* bit 2 controls palette shuffling; only ribbit and twinsqua use this feature */
+  alt_palette_mode = ((~data & 4) >> 2);
+  recompute_palette_tables();
 }
 
 
@@ -628,42 +628,42 @@ static WRITE16_HANDLER( control_w )
 /* protection chip reads */
 static READ16_HANDLER( prot_r )
 {
-	if (LOG_PROTECTION) logerror("%06X:protection r=%02X\n", activecpu_get_previouspc(), prot_table ? prot_read_buf : 0xff);
-	return prot_read_buf | 0xf0;
+  if (LOG_PROTECTION) logerror("%06X:protection r=%02X\n", activecpu_get_previouspc(), prot_table ? prot_read_buf : 0xff);
+  return prot_read_buf | 0xf0;
 }
 
 
 /* protection chip writes */
 static WRITE16_HANDLER( prot_w )
 {
-	int new_sp_palbase = (data >> 2) & 3;
-	int new_bg_palbase = data & 3;
-	int table_index;
+  int new_sp_palbase = (data >> 2) & 3;
+  int new_bg_palbase = data & 3;
+  int table_index;
 
-	/* only works for the LSB */
-	if (!ACCESSING_LSB)
-		return;
+  /* only works for the LSB */
+  if (!ACCESSING_LSB)
+    return;
 
-	/* compute the table index */
-	table_index = (prot_write_buf << 4) | prot_read_buf;
+  /* compute the table index */
+  table_index = (prot_write_buf << 4) | prot_read_buf;
 
-	/* keep track of the last write for the next table lookup */
-	prot_write_buf = data & 0x0f;
+  /* keep track of the last write for the next table lookup */
+  prot_write_buf = data & 0x0f;
 
-	/* determine the value to return, should a read occur */
-	if (prot_table)
-		prot_read_buf = (prot_table[table_index >> 3] << (4 * (table_index & 7))) >> 28;
-	if (LOG_PROTECTION) logerror("%06X:protection w=%02X, new result=%02X\n", activecpu_get_previouspc(), data & 0x0f, prot_read_buf);
+  /* determine the value to return, should a read occur */
+  if (prot_table)
+    prot_read_buf = (prot_table[table_index >> 3] << (4 * (table_index & 7))) >> 28;
+  if (LOG_PROTECTION) logerror("%06X:protection w=%02X, new result=%02X\n", activecpu_get_previouspc(), data & 0x0f, prot_read_buf);
 
-	/* if the palette changed, force an update */
-	if (new_sp_palbase != sp_palbase || new_bg_palbase != bg_palbase)
-	{
-		force_partial_update(cpu_getscanline() + 1);
-		sp_palbase = new_sp_palbase;
-		bg_palbase = new_bg_palbase;
-		recompute_palette_tables();
-		if (LOG_PALETTE) logerror("Set palbank: %d/%d (scan=%d)\n", bg_palbase, sp_palbase, cpu_getscanline());
-	}
+  /* if the palette changed, force an update */
+  if (new_sp_palbase != sp_palbase || new_bg_palbase != bg_palbase)
+  {
+    force_partial_update(cpu_getscanline() + 1);
+    sp_palbase = new_sp_palbase;
+    bg_palbase = new_bg_palbase;
+    recompute_palette_tables();
+    if (LOG_PALETTE) logerror("Set palbank: %d/%d (scan=%d)\n", bg_palbase, sp_palbase, cpu_getscanline());
+  }
 }
 
 
@@ -681,41 +681,41 @@ static WRITE16_HANDLER( prot_w )
 
 static WRITE16_HANDLER( counter_timer_w )
 {
-	/* only LSB matters */
-	if (ACCESSING_LSB)
-	{
-		/*int value = data & 1;*/
-		switch (data & 0x1e)
-		{
-			case 0x00:	/* player 1 start/stop */
-			case 0x02:	/* player 2 start/stop */
-			case 0x04:	/* ??? */
-			case 0x06:	/* ??? */
-			case 0x08:	/* player 1 game timer? */
-			case 0x0a:	/* player 2 game timer? */
-			case 0x0c:	/* ??? */
-			case 0x0e:	/* ??? */
-				break;
+  /* only LSB matters */
+  if (ACCESSING_LSB)
+  {
+    /*int value = data & 1;*/
+    switch (data & 0x1e)
+    {
+      case 0x00:  /* player 1 start/stop */
+      case 0x02:  /* player 2 start/stop */
+      case 0x04:  /* ??? */
+      case 0x06:  /* ??? */
+      case 0x08:  /* player 1 game timer? */
+      case 0x0a:  /* player 2 game timer? */
+      case 0x0c:  /* ??? */
+      case 0x0e:  /* ??? */
+        break;
 
-			case 0x10:	/* coin counter */
+      case 0x10:  /* coin counter */
               coin_counter_w(0,1);
               coin_counter_w(0,0);
-				break;
+        break;
 
-			case 0x12:	/* set coinage info -- followed by two 4-bit values */
-				break;
+      case 0x12:  /* set coinage info -- followed by two 4-bit values */
+        break;
 
-			case 0x14:	/* game timer? (see Tant-R) */
-			case 0x16:	/* intro timer? (see Tant-R) */
-			case 0x18:	/* ??? */
-			case 0x1a:	/* ??? */
-			case 0x1c:	/* ??? */
-				break;
+      case 0x14:  /* game timer? (see Tant-R) */
+      case 0x16:  /* intro timer? (see Tant-R) */
+      case 0x18:  /* ??? */
+      case 0x1a:  /* ??? */
+      case 0x1c:  /* ??? */
+        break;
 
-			case 0x1e:	/* reset */
-				break;
-		}
-	}
+      case 0x1e:  /* reset */
+        break;
+    }
+  }
 }
 
 
@@ -777,57 +777,60 @@ ZunkYou
 ******************************************************************************/
 /*
 static ADDRESS_MAP_START( main_map, ADDRESS_SPACE_PROGRAM, 16 )
-	AM_RANGE(0x000000, 0x1fffff) AM_ROM
-	AM_RANGE(0x800000, 0x800001) AM_MIRROR(0x13fdfe) AM_READWRITE(prot_r, prot_w)
-	AM_RANGE(0x800200, 0x800201) AM_MIRROR(0x13fdfe) AM_WRITE(control_w)
-	AM_RANGE(0x840000, 0x84001f) AM_MIRROR(0x13fee0) AM_READWRITE(io_chip_r, io_chip_w)
-	AM_RANGE(0x840100, 0x840107) AM_MIRROR(0x13fef8) AM_READWRITE(ym3438_r, ym3438_w)
-	AM_RANGE(0x880000, 0x880001) AM_MIRROR(0x13fefe) AM_WRITE(segac2new_upd7759_w)
-	AM_RANGE(0x880100, 0x880101) AM_MIRROR(0x13fefe) AM_WRITE(counter_timer_w)
-	AM_RANGE(0x8c0000, 0x8c0fff) AM_MIRROR(0x13f000) AM_READWRITE(palette_r, palette_w) AM_BASE(&paletteram16)
-	AM_RANGE(0xc00000, 0xc0001f) AM_MIRROR(0x18ff00) AM_READWRITE(genesis_vdp_r, genesis_vdp_w)
-	AM_RANGE(0xc00010, 0xc00017) AM_MIRROR(0x18ff00) AM_WRITE(sn76489_w)
-	AM_RANGE(0xe00000, 0xe0ffff) AM_MIRROR(0x1f0000) AM_RAM AM_BASE(&generic_nvram16) AM_SIZE(&generic_nvram_size)
+  AM_RANGE(0x000000, 0x1fffff) AM_ROM
+  AM_RANGE(0x800000, 0x800001) AM_MIRROR(0x13fdfe) AM_READWRITE(prot_r, prot_w)
+  AM_RANGE(0x800200, 0x800201) AM_MIRROR(0x13fdfe) AM_WRITE(control_w)
+  AM_RANGE(0x840000, 0x84001f) AM_MIRROR(0x13fee0) AM_READWRITE(io_chip_r, io_chip_w)
+  AM_RANGE(0x840100, 0x840107) AM_MIRROR(0x13fef8) AM_READWRITE(ym3438_r, ym3438_w)
+  AM_RANGE(0x880000, 0x880001) AM_MIRROR(0x13fefe) AM_WRITE(segac2new_upd7759_w)
+  AM_RANGE(0x880100, 0x880101) AM_MIRROR(0x13fefe) AM_WRITE(counter_timer_w)
+  AM_RANGE(0x8c0000, 0x8c0fff) AM_MIRROR(0x13f000) AM_READWRITE(palette_r, palette_w) AM_BASE(&paletteram16)
+  AM_RANGE(0xc00000, 0xc0001f) AM_MIRROR(0x18ff00) AM_READWRITE(genesis_vdp_r, genesis_vdp_w)
+  AM_RANGE(0xc00010, 0xc00017) AM_MIRROR(0x18ff00) AM_WRITE(sn76489_w)
+  AM_RANGE(0xe00000, 0xe0ffff) AM_MIRROR(0x1f0000) AM_RAM AM_BASE(&generic_nvram16) AM_SIZE(&generic_nvram_size)
 ADDRESS_MAP_END
 */
 static MEMORY_READ16_START( main_readmem )
-    { 0x000000, 0x1fffff, MRA16_ROM },
-	{ 0x800000, 0x800001, prot_r },
-	{ 0x93fdfe, 0x93fdff, prot_r }, //mirror
-	{ 0x840000, 0x84001f, io_chip_r },
-	{ 0x97fee0, 0x97feff, io_chip_r }, //mirror
-	{ 0x840100, 0x840107, ym3438_r },
-	{ 0x97fff8, 0x97ffff, ym3438_r }, //mirror
-	{ 0x8c0000, 0x8c0fff, palette_r },
-	{ 0x9ff000, 0x9fffff, palette_r }, //mirror
-	{ 0xc00000, 0xc0001f, genesis_vdp_r },
-	{ 0xd8ff00, 0xd8ff1f, genesis_vdp_r }, //mirror
-	{ 0xe00000, 0xe0ffff, MRA16_RAM },
-	{ 0xfe0000, 0xffffff, MRA16_RAM }, //mirror
+  { 0x000000, 0x1fffff, MRA16_ROM },
+  { 0x800000, 0x800001, prot_r },
+  { 0x93fdfe, 0x93fdff, prot_r }, //mirror
+  { 0x840000, 0x84001f, io_chip_r },
+  { 0x97fee0, 0x97feff, io_chip_r }, //mirror
+  { 0x840100, 0x840107, ym3438_r },
+  { 0x97fff8, 0x97ffff, ym3438_r }, //mirror
+  { 0x8c0000, 0x8c0fff, palette_r },
+  { 0x9ff000, 0x9fffff, palette_r }, //mirror
+  { 0xc00000, 0xc0001f, genesis_vdp_r },
+  { 0xd8ff00, 0xd8ff1f, genesis_vdp_r }, //mirror
+  { 0xe00000, 0xe0ffff, MRA16_RAM },
+  { 0xfe0000, 0xfeffff, MRA16_RAM },
+  { 0xff0000, 0xffffff, MRA16_RAM },
+
 MEMORY_END
 
 static MEMORY_WRITE16_START( main_writemem )
-    { 0x000000, 0x1fffff, MWA16_ROM },
-	{ 0x800000, 0x800001, prot_w },
-	{ 0x93fdfe, 0x93fdff, prot_w }, //mirror
-	{ 0x800200, 0x800201, control_w },
-	{ 0x93fffe, 0x93ffff, control_w }, //mirror
-	{ 0x840000, 0x84001f, io_chip_w },
-	{ 0x97fee0, 0x97feff, io_chip_w }, //mirror
-	{ 0x840100, 0x840107, ym3438_w },
-	{ 0x97fff8, 0x97ffff, ym3438_w }, //mirror
-	{ 0x880000, 0x880001, segac2new_upd7759_w },
-	{ 0x9bfefe, 0x9bfeff, segac2new_upd7759_w }, //mirror
-	{ 0x880100, 0x880101, counter_timer_w },
-	{ 0x9bfffe, 0x9bffff, counter_timer_w }, //mirror
-	{ 0x8c0000, 0x8c0fff, palette_w, &paletteram16 },
-	{ 0x9ff000, 0x9fffff, palette_w, &paletteram16 }, //mirror
-	{ 0xc00000, 0xc0001f, genesis_vdp_w },
-	{ 0xd8ff00, 0xd8ff1f, genesis_vdp_w }, //mirror
-	{ 0xc00010, 0xc00017, sn76489_w },
-	{ 0xd8ff10, 0xd8ff17, sn76489_w }, //mirror
-	{ 0xe00000, 0xe0ffff, MWA16_RAM, (data16_t **)&generic_nvram, &generic_nvram_size },
-	{ 0xfe0000, 0xffffff, MWA16_RAM, (data16_t **)&generic_nvram, &generic_nvram_size }, //mirror
+  { 0x000000, 0x1fffff, MWA16_ROM },
+  { 0x800000, 0x800001, prot_w },
+  { 0x93fdfe, 0x93fdff, prot_w }, //mirror
+  { 0x800200, 0x800201, control_w },
+  { 0x93fffe, 0x93ffff, control_w }, //mirror
+  { 0x840000, 0x84001f, io_chip_w },
+  { 0x97fee0, 0x97feff, io_chip_w }, //mirror
+  { 0x840100, 0x840107, ym3438_w },
+  { 0x97fff8, 0x97ffff, ym3438_w }, //mirror
+  { 0x880000, 0x880001, segac2new_upd7759_w },
+  { 0x9bfefe, 0x9bfeff, segac2new_upd7759_w }, //mirror
+  { 0x880100, 0x880101, counter_timer_w },
+  { 0x9bfffe, 0x9bffff, counter_timer_w }, //mirror
+  { 0x8c0000, 0x8c0fff, palette_w, &paletteram16 },
+  { 0x9ff000, 0x9fffff, palette_w, &paletteram16 }, //mirror
+  { 0xc00000, 0xc0001f, genesis_vdp_w },
+  { 0xd8ff00, 0xd8ff1f, genesis_vdp_w }, //mirror
+  { 0xc00010, 0xc00017, sn76489_w },
+  { 0xd8ff10, 0xd8ff17, sn76489_w }, //mirror
+  { 0xe00000, 0xe0ffff, MWA16_RAM, (data16_t **)&generic_nvram, &generic_nvram_size },
+  { 0xfe0000, 0xfeffff, MWA16_RAM, (data16_t **)&generic_nvram, &generic_nvram_size }, //mirror
+  { 0xff0000, 0xffffff, MWA16_RAM, (data16_t **)&generic_nvram, &generic_nvram_size }, //mirror
 MEMORY_END
 
 
@@ -849,108 +852,108 @@ MEMORY_END
 
 INPUT_PORTS_START( twinsqua )
     PORT_START
-	PORT_ANALOG( 0xff, 0x00, IPT_DIAL | IPF_PLAYER1, 30, 15, 0, 0)
+  PORT_ANALOG( 0xff, 0x00, IPT_DIAL | IPF_PLAYER1, 30, 15, 0, 0)
 
     PORT_START
-	PORT_ANALOG( 0xff, 0x00, IPT_DIAL | IPF_PLAYER2, 30, 15, 0, 0)
+  PORT_ANALOG( 0xff, 0x00, IPT_DIAL | IPF_PLAYER2, 30, 15, 0, 0)
 
-	PORT_START
-	PORT_BIT( 0x3f, IP_ACTIVE_LOW, IPT_UNUSED )
-	PORT_BIT( 0x40, IP_ACTIVE_LOW, IPT_SPECIAL )	/* From uPD7759 pin 18. (/BUSY output) */
-	PORT_BIT( 0x80, IP_ACTIVE_LOW, IPT_SPECIAL )	/* From MB3773P pin 1. (/RESET output) */
+  PORT_START
+  PORT_BIT( 0x3f, IP_ACTIVE_LOW, IPT_UNUSED )
+  PORT_BIT( 0x40, IP_ACTIVE_LOW, IPT_SPECIAL )  /* From uPD7759 pin 18. (/BUSY output) */
+  PORT_BIT( 0x80, IP_ACTIVE_LOW, IPT_SPECIAL )  /* From MB3773P pin 1. (/RESET output) */
 
-	PORT_START
-	PORT_BIT( 0xff, IP_ACTIVE_LOW, IPT_UNUSED )
+  PORT_START
+  PORT_BIT( 0xff, IP_ACTIVE_LOW, IPT_UNUSED )
 
-	PORT_START
+  PORT_START
     PORT_BIT( 0x01, IP_ACTIVE_LOW, IPT_COIN1 )
     PORT_BIT( 0x02, IP_ACTIVE_LOW, IPT_COIN2 )
-	PORT_SERVICE_NO_TOGGLE( 0x04, IP_ACTIVE_LOW )
+  PORT_SERVICE_NO_TOGGLE( 0x04, IP_ACTIVE_LOW )
     PORT_BIT( 0x08, IP_ACTIVE_LOW, IPT_SERVICE1 )
     PORT_BIT( 0x10, IP_ACTIVE_LOW, IPT_START1 )
     PORT_BIT( 0x20, IP_ACTIVE_LOW, IPT_START2 )
-	PORT_BIT( 0x40, IP_ACTIVE_LOW, IPT_BUTTON1 | IPF_PLAYER1 )
-	PORT_BIT( 0x80, IP_ACTIVE_LOW, IPT_BUTTON1 | IPF_PLAYER2 )
+  PORT_BIT( 0x40, IP_ACTIVE_LOW, IPT_BUTTON1 | IPF_PLAYER1 )
+  PORT_BIT( 0x80, IP_ACTIVE_LOW, IPT_BUTTON1 | IPF_PLAYER2 )
 
 
-	PORT_START
-	PORT_DIPNAME( 0x0f, 0x0f, DEF_STR( Coin_A ) )
-	PORT_DIPSETTING(    0x07, DEF_STR( 4C_1C ) )
-	PORT_DIPSETTING(    0x08, DEF_STR( 3C_1C ) )
-	PORT_DIPSETTING(    0x09, DEF_STR( 2C_1C ) )
-	PORT_DIPSETTING(    0x05, "2 Coins/1 Credit 5/3 6/4" )
-	PORT_DIPSETTING(    0x04, "2 Coins/1 Credit 4/3" )
-	PORT_DIPSETTING(    0x0f, DEF_STR( 1C_1C ) )
-	PORT_DIPSETTING(    0x01, "1 Coin/1 Credit 2/3" )
-	PORT_DIPSETTING(    0x02, "1 Coin/1 Credit 4/5" )
-	PORT_DIPSETTING(    0x03, "1 Coin/1 Credit 5/6" )
-	PORT_DIPSETTING(    0x06, DEF_STR( 2C_3C ) )
-	PORT_DIPSETTING(    0x0e, DEF_STR( 1C_2C ) )
-	PORT_DIPSETTING(    0x0d, DEF_STR( 1C_3C ) )
-	PORT_DIPSETTING(    0x0c, DEF_STR( 1C_4C ) )
-	PORT_DIPSETTING(    0x0b, DEF_STR( 1C_5C ) )
-	PORT_DIPSETTING(    0x0a, DEF_STR( 1C_6C ) )
-	PORT_DIPSETTING(    0x00, "Free Play (if Coin B too) or 1/1" )
-	PORT_DIPNAME( 0xf0, 0xf0, DEF_STR( Coin_B ) )
-	PORT_DIPSETTING(    0x70, DEF_STR( 4C_1C ) )
-	PORT_DIPSETTING(    0x80, DEF_STR( 3C_1C ) )
-	PORT_DIPSETTING(    0x90, DEF_STR( 2C_1C ) )
-	PORT_DIPSETTING(    0x50, "2 Coins/1 Credit 5/3 6/4" )
-	PORT_DIPSETTING(    0x40, "2 Coins/1 Credit 4/3" )
-	PORT_DIPSETTING(    0xf0, DEF_STR( 1C_1C ) )
-	PORT_DIPSETTING(    0x10, "1 Coin/1 Credit 2/3" )
-	PORT_DIPSETTING(    0x20, "1 Coin/1 Credit 4/5" )
-	PORT_DIPSETTING(    0x30, "1 Coin/1 Credit 5/6" )
-	PORT_DIPSETTING(    0x60, DEF_STR( 2C_3C ) )
-	PORT_DIPSETTING(    0xe0, DEF_STR( 1C_2C ) )
-	PORT_DIPSETTING(    0xd0, DEF_STR( 1C_3C ) )
-	PORT_DIPSETTING(    0xc0, DEF_STR( 1C_4C ) )
-	PORT_DIPSETTING(    0xb0, DEF_STR( 1C_5C ) )
-	PORT_DIPSETTING(    0xa0, DEF_STR( 1C_6C ) )
-	PORT_DIPSETTING(    0x00, "Free Play (if Coin A too) or 1/1" )
+  PORT_START
+  PORT_DIPNAME( 0x0f, 0x0f, DEF_STR( Coin_A ) )
+  PORT_DIPSETTING(    0x07, DEF_STR( 4C_1C ) )
+  PORT_DIPSETTING(    0x08, DEF_STR( 3C_1C ) )
+  PORT_DIPSETTING(    0x09, DEF_STR( 2C_1C ) )
+  PORT_DIPSETTING(    0x05, "2 Coins/1 Credit 5/3 6/4" )
+  PORT_DIPSETTING(    0x04, "2 Coins/1 Credit 4/3" )
+  PORT_DIPSETTING(    0x0f, DEF_STR( 1C_1C ) )
+  PORT_DIPSETTING(    0x01, "1 Coin/1 Credit 2/3" )
+  PORT_DIPSETTING(    0x02, "1 Coin/1 Credit 4/5" )
+  PORT_DIPSETTING(    0x03, "1 Coin/1 Credit 5/6" )
+  PORT_DIPSETTING(    0x06, DEF_STR( 2C_3C ) )
+  PORT_DIPSETTING(    0x0e, DEF_STR( 1C_2C ) )
+  PORT_DIPSETTING(    0x0d, DEF_STR( 1C_3C ) )
+  PORT_DIPSETTING(    0x0c, DEF_STR( 1C_4C ) )
+  PORT_DIPSETTING(    0x0b, DEF_STR( 1C_5C ) )
+  PORT_DIPSETTING(    0x0a, DEF_STR( 1C_6C ) )
+  PORT_DIPSETTING(    0x00, "Free Play (if Coin B too) or 1/1" )
+  PORT_DIPNAME( 0xf0, 0xf0, DEF_STR( Coin_B ) )
+  PORT_DIPSETTING(    0x70, DEF_STR( 4C_1C ) )
+  PORT_DIPSETTING(    0x80, DEF_STR( 3C_1C ) )
+  PORT_DIPSETTING(    0x90, DEF_STR( 2C_1C ) )
+  PORT_DIPSETTING(    0x50, "2 Coins/1 Credit 5/3 6/4" )
+  PORT_DIPSETTING(    0x40, "2 Coins/1 Credit 4/3" )
+  PORT_DIPSETTING(    0xf0, DEF_STR( 1C_1C ) )
+  PORT_DIPSETTING(    0x10, "1 Coin/1 Credit 2/3" )
+  PORT_DIPSETTING(    0x20, "1 Coin/1 Credit 4/5" )
+  PORT_DIPSETTING(    0x30, "1 Coin/1 Credit 5/6" )
+  PORT_DIPSETTING(    0x60, DEF_STR( 2C_3C ) )
+  PORT_DIPSETTING(    0xe0, DEF_STR( 1C_2C ) )
+  PORT_DIPSETTING(    0xd0, DEF_STR( 1C_3C ) )
+  PORT_DIPSETTING(    0xc0, DEF_STR( 1C_4C ) )
+  PORT_DIPSETTING(    0xb0, DEF_STR( 1C_5C ) )
+  PORT_DIPSETTING(    0xa0, DEF_STR( 1C_6C ) )
+  PORT_DIPSETTING(    0x00, "Free Play (if Coin A too) or 1/1" )
 
-	PORT_START
-	PORT_DIPNAME( 0x01, 0x01, "Credits to Start" )
-	PORT_DIPSETTING(    0x01, "1" )
-	PORT_DIPSETTING(    0x00, "2" )
+  PORT_START
+  PORT_DIPNAME( 0x01, 0x01, "Credits to Start" )
+  PORT_DIPSETTING(    0x01, "1" )
+  PORT_DIPSETTING(    0x00, "2" )
     PORT_DIPNAME( 0x02, 0x00, DEF_STR( Demo_Sounds ) )
-	PORT_DIPSETTING(    0x02, DEF_STR( Off ) )
-	PORT_DIPSETTING(    0x00, DEF_STR( On ) )
+  PORT_DIPSETTING(    0x02, DEF_STR( Off ) )
+  PORT_DIPSETTING(    0x00, DEF_STR( On ) )
     PORT_DIPNAME( 0x04, 0x04, "Buy In" )
-	PORT_DIPSETTING(    0x04, DEF_STR( Off ) )
-	PORT_DIPSETTING(    0x00, DEF_STR( On ) )
-	PORT_DIPNAME( 0x08, 0x08, DEF_STR( Unknown ) )
-	PORT_DIPSETTING(    0x08, DEF_STR( Off ) )
-	PORT_DIPSETTING(    0x00, DEF_STR( On ) )
-	PORT_DIPNAME( 0x10, 0x10, DEF_STR( Unknown ) )
-	PORT_DIPSETTING(    0x10, DEF_STR( Off ) )
-	PORT_DIPSETTING(    0x00, DEF_STR( On ) )
-	PORT_DIPNAME( 0x18, 0x18, DEF_STR( Difficulty ) )
-	PORT_DIPSETTING(    0x10, "Easy" )
+  PORT_DIPSETTING(    0x04, DEF_STR( Off ) )
+  PORT_DIPSETTING(    0x00, DEF_STR( On ) )
+  PORT_DIPNAME( 0x08, 0x08, DEF_STR( Unknown ) )
+  PORT_DIPSETTING(    0x08, DEF_STR( Off ) )
+  PORT_DIPSETTING(    0x00, DEF_STR( On ) )
+  PORT_DIPNAME( 0x10, 0x10, DEF_STR( Unknown ) )
+  PORT_DIPSETTING(    0x10, DEF_STR( Off ) )
+  PORT_DIPSETTING(    0x00, DEF_STR( On ) )
+  PORT_DIPNAME( 0x18, 0x18, DEF_STR( Difficulty ) )
+  PORT_DIPSETTING(    0x10, "Easy" )
     PORT_DIPSETTING(    0x18, "Medium" )
-	PORT_DIPSETTING(    0x08, "Hard" )
-	PORT_DIPSETTING(    0x00, "Hardest" )
+  PORT_DIPSETTING(    0x08, "Hard" )
+  PORT_DIPSETTING(    0x00, "Hardest" )
     PORT_DIPNAME( 0x20, 0x20, "Seat Type" )
-	PORT_DIPSETTING(    0x20, "Normal" )
-	PORT_DIPSETTING(    0x00, "Moving" )
-	PORT_DIPNAME( 0x40, 0x40, DEF_STR( Unknown ) )
-	PORT_DIPSETTING(    0x40, DEF_STR( Off ) )
-	PORT_DIPSETTING(    0x00, DEF_STR( On ) )
-	PORT_DIPNAME( 0x80, 0x80, DEF_STR( Unknown ) )
-	PORT_DIPSETTING(    0x80, DEF_STR( Off ) )
-	PORT_DIPSETTING(    0x00, DEF_STR( On ) )
+  PORT_DIPSETTING(    0x20, "Normal" )
+  PORT_DIPSETTING(    0x00, "Moving" )
+  PORT_DIPNAME( 0x40, 0x40, DEF_STR( Unknown ) )
+  PORT_DIPSETTING(    0x40, DEF_STR( Off ) )
+  PORT_DIPSETTING(    0x00, DEF_STR( On ) )
+  PORT_DIPNAME( 0x80, 0x80, DEF_STR( Unknown ) )
+  PORT_DIPSETTING(    0x80, DEF_STR( Off ) )
+  PORT_DIPSETTING(    0x00, DEF_STR( On ) )
 
-	PORT_START
-	PORT_BIT( 0xff, IP_ACTIVE_LOW, IPT_UNUSED )
+  PORT_START
+  PORT_BIT( 0xff, IP_ACTIVE_LOW, IPT_UNUSED )
 INPUT_PORTS_END
 
 
 INPUT_PORTS_START( ooparts )
     PORT_START
     PORT_BIT( 0x01, IP_ACTIVE_LOW, IPT_BUTTON1 | IPF_PLAYER1 )
-    PORT_BIT( 0x02, IP_ACTIVE_LOW, IPT_UNUSED )		/* Button 2 Unused */
-    PORT_BIT( 0x04, IP_ACTIVE_LOW, IPT_UNUSED )		/* Button 3 Unused */
-	PORT_BIT( 0x08, IP_ACTIVE_LOW, IPT_UNKNOWN )
+    PORT_BIT( 0x02, IP_ACTIVE_LOW, IPT_BUTTON2 | IPF_PLAYER1 )
+    PORT_BIT( 0x04, IP_ACTIVE_LOW, IPT_UNUSED )   /* Button 3 Unused */
+    PORT_BIT( 0x08, IP_ACTIVE_LOW, IPT_UNKNOWN )
     PORT_BIT( 0x10, IP_ACTIVE_LOW, IPT_JOYSTICK_DOWN | IPF_PLAYER1 )
     PORT_BIT( 0x20, IP_ACTIVE_LOW, IPT_JOYSTICK_UP | IPF_PLAYER1 )
     PORT_BIT( 0x40, IP_ACTIVE_LOW, IPT_JOYSTICK_RIGHT | IPF_PLAYER1)
@@ -958,101 +961,101 @@ INPUT_PORTS_START( ooparts )
 
     PORT_START
     PORT_BIT( 0x01, IP_ACTIVE_LOW, IPT_BUTTON1 | IPF_PLAYER2 )
-    PORT_BIT( 0x02, IP_ACTIVE_LOW, IPT_UNUSED )		/* Button 2 Unused */
-    PORT_BIT( 0x04, IP_ACTIVE_LOW, IPT_UNUSED )		/* Button 3 Unused */
-	PORT_BIT( 0x08, IP_ACTIVE_LOW, IPT_UNKNOWN )
+    PORT_BIT( 0x02, IP_ACTIVE_LOW, IPT_BUTTON2 | IPF_PLAYER2 )
+    PORT_BIT( 0x04, IP_ACTIVE_LOW, IPT_UNUSED )   /* Button 3 Unused */
+    PORT_BIT( 0x08, IP_ACTIVE_LOW, IPT_UNKNOWN )
     PORT_BIT( 0x10, IP_ACTIVE_LOW, IPT_JOYSTICK_DOWN | IPF_PLAYER2 )
     PORT_BIT( 0x20, IP_ACTIVE_LOW, IPT_JOYSTICK_UP | IPF_PLAYER2 )
     PORT_BIT( 0x40, IP_ACTIVE_LOW, IPT_JOYSTICK_RIGHT | IPF_PLAYER2 )
     PORT_BIT( 0x80, IP_ACTIVE_LOW, IPT_JOYSTICK_LEFT | IPF_PLAYER2 )
 
-	PORT_START
-	PORT_BIT( 0x3f, IP_ACTIVE_LOW, IPT_UNUSED )
-	PORT_BIT( 0x40, IP_ACTIVE_LOW, IPT_SPECIAL )	/* From uPD7759 pin 18. (/BUSY output) */
-	PORT_BIT( 0x80, IP_ACTIVE_LOW, IPT_SPECIAL )	/* From MB3773P pin 1. (/RESET output) */
+  PORT_START
+    PORT_BIT( 0x3f, IP_ACTIVE_LOW, IPT_UNUSED )
+    PORT_BIT( 0x40, IP_ACTIVE_LOW, IPT_SPECIAL )  /* From uPD7759 pin 18. (/BUSY output) */
+    PORT_BIT( 0x80, IP_ACTIVE_LOW, IPT_SPECIAL )  /* From MB3773P pin 1. (/RESET output) */
 
-	PORT_START
-	PORT_BIT( 0xff, IP_ACTIVE_LOW, IPT_UNUSED )
+  PORT_START
+    PORT_BIT( 0xff, IP_ACTIVE_LOW, IPT_UNUSED )
 
-	PORT_START
+  PORT_START
     PORT_BIT( 0x01, IP_ACTIVE_LOW, IPT_COIN1 )
     PORT_BIT( 0x02, IP_ACTIVE_LOW, IPT_COIN2 )
-	PORT_SERVICE_NO_TOGGLE( 0x04, IP_ACTIVE_LOW )
+    PORT_SERVICE_NO_TOGGLE( 0x04, IP_ACTIVE_LOW )
     PORT_BIT( 0x08, IP_ACTIVE_LOW, IPT_SERVICE1 )
     PORT_BIT( 0x10, IP_ACTIVE_LOW, IPT_START1 )
     PORT_BIT( 0x20, IP_ACTIVE_LOW, IPT_START2 )
     PORT_BIT( 0x40, IP_ACTIVE_LOW, IPT_UNKNOWN )
     PORT_BIT( 0x80, IP_ACTIVE_LOW, IPT_UNKNOWN )
 
-	PORT_START
-	PORT_DIPNAME( 0x0f, 0x0f, DEF_STR( Coin_A ) )
-	PORT_DIPSETTING(    0x07, DEF_STR( 4C_1C ) )
-	PORT_DIPSETTING(    0x08, DEF_STR( 3C_1C ) )
-	PORT_DIPSETTING(    0x09, DEF_STR( 2C_1C ) )
-	PORT_DIPSETTING(    0x05, "2 Coins/1 Credit 5/3 6/4" )
-	PORT_DIPSETTING(    0x04, "2 Coins/1 Credit 4/3" )
-	PORT_DIPSETTING(    0x0f, DEF_STR( 1C_1C ) )
-	PORT_DIPSETTING(    0x01, "1 Coin/1 Credit 2/3" )
-	PORT_DIPSETTING(    0x02, "1 Coin/1 Credit 4/5" )
-	PORT_DIPSETTING(    0x03, "1 Coin/1 Credit 5/6" )
-	PORT_DIPSETTING(    0x06, DEF_STR( 2C_3C ) )
-	PORT_DIPSETTING(    0x0e, DEF_STR( 1C_2C ) )
-	PORT_DIPSETTING(    0x0d, DEF_STR( 1C_3C ) )
-	PORT_DIPSETTING(    0x0c, DEF_STR( 1C_4C ) )
-	PORT_DIPSETTING(    0x0b, DEF_STR( 1C_5C ) )
-	PORT_DIPSETTING(    0x0a, DEF_STR( 1C_6C ) )
-	PORT_DIPSETTING(    0x00, "Free Play (if Coin B too) or 1/1" )
-	PORT_DIPNAME( 0xf0, 0xf0, DEF_STR( Coin_B ) )
-	PORT_DIPSETTING(    0x70, DEF_STR( 4C_1C ) )
-	PORT_DIPSETTING(    0x80, DEF_STR( 3C_1C ) )
-	PORT_DIPSETTING(    0x90, DEF_STR( 2C_1C ) )
-	PORT_DIPSETTING(    0x50, "2 Coins/1 Credit 5/3 6/4" )
-	PORT_DIPSETTING(    0x40, "2 Coins/1 Credit 4/3" )
-	PORT_DIPSETTING(    0xf0, DEF_STR( 1C_1C ) )
-	PORT_DIPSETTING(    0x10, "1 Coin/1 Credit 2/3" )
-	PORT_DIPSETTING(    0x20, "1 Coin/1 Credit 4/5" )
-	PORT_DIPSETTING(    0x30, "1 Coin/1 Credit 5/6" )
-	PORT_DIPSETTING(    0x60, DEF_STR( 2C_3C ) )
-	PORT_DIPSETTING(    0xe0, DEF_STR( 1C_2C ) )
-	PORT_DIPSETTING(    0xd0, DEF_STR( 1C_3C ) )
-	PORT_DIPSETTING(    0xc0, DEF_STR( 1C_4C ) )
-	PORT_DIPSETTING(    0xb0, DEF_STR( 1C_5C ) )
-	PORT_DIPSETTING(    0xa0, DEF_STR( 1C_6C ) )
-	PORT_DIPSETTING(    0x00, "Free Play (if Coin A too) or 1/1" )
+  PORT_START
+    PORT_DIPNAME( 0x0f, 0x0f, DEF_STR( Coin_A ) )
+    PORT_DIPSETTING(    0x07, DEF_STR( 4C_1C ) )
+    PORT_DIPSETTING(    0x08, DEF_STR( 3C_1C ) )
+    PORT_DIPSETTING(    0x09, DEF_STR( 2C_1C ) )
+    PORT_DIPSETTING(    0x05, "2 Coins/1 Credit 5/3 6/4" )
+    PORT_DIPSETTING(    0x04, "2 Coins/1 Credit 4/3" )
+    PORT_DIPSETTING(    0x0f, DEF_STR( 1C_1C ) )
+    PORT_DIPSETTING(    0x01, "1 Coin/1 Credit 2/3" )
+    PORT_DIPSETTING(    0x02, "1 Coin/1 Credit 4/5" )
+    PORT_DIPSETTING(    0x03, "1 Coin/1 Credit 5/6" )
+    PORT_DIPSETTING(    0x06, DEF_STR( 2C_3C ) )
+    PORT_DIPSETTING(    0x0e, DEF_STR( 1C_2C ) )
+    PORT_DIPSETTING(    0x0d, DEF_STR( 1C_3C ) )
+    PORT_DIPSETTING(    0x0c, DEF_STR( 1C_4C ) )
+    PORT_DIPSETTING(    0x0b, DEF_STR( 1C_5C ) )
+    PORT_DIPSETTING(    0x0a, DEF_STR( 1C_6C ) )
+    PORT_DIPSETTING(    0x00, "Free Play (if Coin B too) or 1/1" )
+    PORT_DIPNAME( 0xf0, 0xf0, DEF_STR( Coin_B ) )
+    PORT_DIPSETTING(    0x70, DEF_STR( 4C_1C ) )
+    PORT_DIPSETTING(    0x80, DEF_STR( 3C_1C ) )
+    PORT_DIPSETTING(    0x90, DEF_STR( 2C_1C ) )
+    PORT_DIPSETTING(    0x50, "2 Coins/1 Credit 5/3 6/4" )
+    PORT_DIPSETTING(    0x40, "2 Coins/1 Credit 4/3" )
+    PORT_DIPSETTING(    0xf0, DEF_STR( 1C_1C ) )
+    PORT_DIPSETTING(    0x10, "1 Coin/1 Credit 2/3" )
+    PORT_DIPSETTING(    0x20, "1 Coin/1 Credit 4/5" )
+    PORT_DIPSETTING(    0x30, "1 Coin/1 Credit 5/6" )
+    PORT_DIPSETTING(    0x60, DEF_STR( 2C_3C ) )
+    PORT_DIPSETTING(    0xe0, DEF_STR( 1C_2C ) )
+    PORT_DIPSETTING(    0xd0, DEF_STR( 1C_3C ) )
+    PORT_DIPSETTING(    0xc0, DEF_STR( 1C_4C ) )
+    PORT_DIPSETTING(    0xb0, DEF_STR( 1C_5C ) )
+    PORT_DIPSETTING(    0xa0, DEF_STR( 1C_6C ) )
+    PORT_DIPSETTING(    0x00, "Free Play (if Coin A too) or 1/1" )
 
-	PORT_START
+  PORT_START
     PORT_DIPNAME( 0x01, 0x00, DEF_STR( Demo_Sounds ) )
     PORT_DIPSETTING(    0x01, DEF_STR( Off ) )
-	PORT_DIPSETTING(    0x00, DEF_STR( On ) )
-	PORT_DIPNAME( 0x02, 0x02, DEF_STR( Unknown ) )
-	PORT_DIPSETTING(    0x02, DEF_STR( Off ) )
-	PORT_DIPSETTING(    0x00, DEF_STR( On ) )
-	PORT_DIPNAME( 0x04, 0x04, DEF_STR( Unknown ) )
-	PORT_DIPSETTING(    0x04, DEF_STR( Off ) )
-	PORT_DIPSETTING(    0x00, DEF_STR( On ) )
-	PORT_DIPNAME( 0x06, 0x06, DEF_STR( Difficulty ) )
+    PORT_DIPSETTING(    0x00, DEF_STR( On ) )
+    PORT_DIPNAME( 0x02, 0x02, DEF_STR( Unknown ) )
+    PORT_DIPSETTING(    0x02, DEF_STR( Off ) )
+    PORT_DIPSETTING(    0x00, DEF_STR( On ) )
+    PORT_DIPNAME( 0x04, 0x04, DEF_STR( Unknown ) )
+    PORT_DIPSETTING(    0x04, DEF_STR( Off ) )
+    PORT_DIPSETTING(    0x00, DEF_STR( On ) )
+    PORT_DIPNAME( 0x06, 0x06, DEF_STR( Difficulty ) )
     PORT_DIPSETTING(    0x04, "Easy" )
     PORT_DIPSETTING(    0x06, "Medium" )
     PORT_DIPSETTING(    0x02, "Hard" )
-	PORT_DIPSETTING(    0x00, "Hardest" )
-	PORT_DIPNAME( 0x08, 0x08, DEF_STR( Unknown ) )
-	PORT_DIPSETTING(    0x08, DEF_STR( Off ) )
-	PORT_DIPSETTING(    0x00, DEF_STR( On ) )
-	PORT_DIPNAME( 0x10, 0x10, DEF_STR( Unknown ) )
-	PORT_DIPSETTING(    0x10, DEF_STR( Off ) )
-	PORT_DIPSETTING(    0x00, DEF_STR( On ) )
-	PORT_DIPNAME( 0x20, 0x20, DEF_STR( Unknown ) )
-	PORT_DIPSETTING(    0x20, DEF_STR( Off ) )
-	PORT_DIPSETTING(    0x00, DEF_STR( On ) )
-	PORT_DIPNAME( 0x40, 0x40, DEF_STR( Unknown ) )
-	PORT_DIPSETTING(    0x40, DEF_STR( Off ) )
-	PORT_DIPSETTING(    0x00, DEF_STR( On ) )
-	PORT_DIPNAME( 0x80, 0x80, DEF_STR( Unknown ) )
-	PORT_DIPSETTING(    0x80, DEF_STR( Off ) )
-	PORT_DIPSETTING(    0x00, DEF_STR( On ) )
+    PORT_DIPSETTING(    0x00, "Hardest" )
+    PORT_DIPNAME( 0x08, 0x08, DEF_STR( Unknown ) )
+    PORT_DIPSETTING(    0x08, DEF_STR( Off ) )
+    PORT_DIPSETTING(    0x00, DEF_STR( On ) )
+    PORT_DIPNAME( 0x10, 0x10, DEF_STR( Unknown ) )
+    PORT_DIPSETTING(    0x10, DEF_STR( Off ) )
+    PORT_DIPSETTING(    0x00, DEF_STR( On ) )
+    PORT_DIPNAME( 0x20, 0x20, DEF_STR( Unknown ) )
+    PORT_DIPSETTING(    0x20, DEF_STR( Off ) )
+    PORT_DIPSETTING(    0x00, DEF_STR( On ) )
+    PORT_DIPNAME( 0x40, 0x40, DEF_STR( Unknown ) )
+    PORT_DIPSETTING(    0x40, DEF_STR( Off ) )
+    PORT_DIPSETTING(    0x00, DEF_STR( On ) )
+    PORT_DIPNAME( 0x80, 0x80, DEF_STR( Unknown ) )
+    PORT_DIPSETTING(    0x80, DEF_STR( Off ) )
+    PORT_DIPSETTING(    0x00, DEF_STR( On ) )
 
-	PORT_START
-	PORT_BIT( 0xff, IP_ACTIVE_LOW, IPT_UNUSED )
+  PORT_START
+    PORT_BIT( 0xff, IP_ACTIVE_LOW, IPT_UNUSED )
 INPUT_PORTS_END
 
 
@@ -1063,30 +1066,30 @@ INPUT_PORTS_END
 
 static struct UPD7759_interface upd7759_intf =
 {
-	1,								/* One chip */
-	{ 75 },							/* Volume */
-	{ REGION_SOUND1 },				/* Memory pointer (gen.h) */
-	UPD7759_STANDALONE_MODE			/* Chip mode */
+  1,                /* One chip */
+  { 75 },             /* Volume */
+  { REGION_SOUND1 },        /* Memory pointer (gen.h) */
+  UPD7759_STANDALONE_MODE     /* Chip mode */
 };
 
 static struct YM2612interface ym3438_intf =
 {
-	1,								/* One chip */
-	XL2_CLOCK/7,					/* Clock: 7.67 MHz */
-	{ YM3012_VOL(50,MIXER_PAN_CENTER,50,MIXER_PAN_CENTER) },	/* Volume */
-	{ 0 },							/* port I/O */
-	{ 0 },							/* port I/O */
-	{ 0 },							/* port I/O */
-	{ 0 },							/* port I/O */
-	{ genesis_irq2_interrupt }			/* IRQ handler */
+  1,                /* One chip */
+  XL2_CLOCK/7,          /* Clock: 7.67 MHz */
+  { YM3012_VOL(50,MIXER_PAN_CENTER,50,MIXER_PAN_CENTER) },  /* Volume */
+  { 0 },              /* port I/O */
+  { 0 },              /* port I/O */
+  { 0 },              /* port I/O */
+  { 0 },              /* port I/O */
+  { genesis_irq2_interrupt }      /* IRQ handler */
 };
 
 
 static struct SN76496interface sn76489_intf =
 {
-	1,								/* One chip */
-	{ XL2_CLOCK/15 },			/* Clock: 3.58 MHz */
-	{ 50 }							/* Volume */
+  1,                /* One chip */
+  { XL2_CLOCK/15 },     /* Clock: 3.58 MHz */
+  { 50 }              /* Volume */
 };
 
 
@@ -1104,30 +1107,30 @@ static struct SN76496interface sn76489_intf =
 ******************************************************************************/
 static MACHINE_DRIVER_START( segacnew )
 
-	/* basic machine hardware */
-	MDRV_CPU_ADD_TAG("main", M68000, XL2_CLOCK/6)
-	MDRV_CPU_MEMORY(main_readmem, main_writemem)
-	MDRV_CPU_VBLANK_INT(genesis_vblank_interrupt,1)
+  /* basic machine hardware */
+  MDRV_CPU_ADD_TAG("main", M68000, XL2_CLOCK/6)
+  MDRV_CPU_MEMORY(main_readmem, main_writemem)
+  MDRV_CPU_VBLANK_INT(genesis_vblank_interrupt,1)
 
-	MDRV_FRAMES_PER_SECOND(60)
-	MDRV_VBLANK_DURATION((int)(((262. - 224.) / 262.) * 1000000. / 60.))
+  MDRV_FRAMES_PER_SECOND(60)
+  MDRV_VBLANK_DURATION((int)(((262. - 224.) / 262.) * 1000000. / 60.))
 
-	MDRV_MACHINE_INIT(segac2new)
-/*	MDRV_NVRAM_HANDLER(generic_randfill) not supported in MAME78 */
+  MDRV_MACHINE_INIT(segac2new)
+/*  MDRV_NVRAM_HANDLER(generic_randfill) not supported in MAME78 */
 
-	/* video hardware */
-	MDRV_VIDEO_ATTRIBUTES(VIDEO_TYPE_RASTER | VIDEO_HAS_SHADOWS | VIDEO_HAS_HIGHLIGHTS)
-	MDRV_SCREEN_SIZE(320,224)
-	MDRV_VISIBLE_AREA(0, 319, 0, 223)
-	MDRV_PALETTE_LENGTH(2048)
+  /* video hardware */
+  MDRV_VIDEO_ATTRIBUTES(VIDEO_TYPE_RASTER | VIDEO_HAS_SHADOWS | VIDEO_HAS_HIGHLIGHTS)
+  MDRV_SCREEN_SIZE(320,224)
+  MDRV_VISIBLE_AREA(0, 319, 0, 223)
+  MDRV_PALETTE_LENGTH(2048)
 
-	MDRV_VIDEO_START(segac2new)
-	MDRV_VIDEO_UPDATE(segac2new)
+  MDRV_VIDEO_START(segac2new)
+  MDRV_VIDEO_UPDATE(segac2new)
 
-	/* sound hardware */
-	MDRV_SOUND_ADD(YM2612, ym3438_intf)
-	MDRV_SOUND_ADD(SN76496, sn76489_intf)
-	MDRV_SOUND_ADD(UPD7759, upd7759_intf)
+  /* sound hardware */
+  MDRV_SOUND_ADD(YM2612, ym3438_intf)
+  MDRV_SOUND_ADD(SN76496, sn76489_intf)
+  MDRV_SOUND_ADD(UPD7759, upd7759_intf)
 MACHINE_DRIVER_END
 
 
@@ -1155,34 +1158,34 @@ MACHINE_DRIVER_END
 /* ----- System C2 Games ----- */
 
 ROM_START( headonch ) /* Head On Channel (Prototype) (c)1994 Sega */
-	ROM_REGION( 0x200000, REGION_CPU1, 0 )
-	ROM_LOAD16_BYTE( "epr-16812.ic32", 0x000000, 0x080000, CRC(091cf538) )
-	ROM_LOAD16_BYTE( "epr-16811.ic31", 0x000001, 0x080000, CRC(91f3b5f1) )
-	ROM_LOAD16_BYTE( "epr-16814.ic34", 0x100000, 0x080000, CRC(d8dc6323) )
-	ROM_LOAD16_BYTE( "epr-16813.ic33", 0x100001, 0x080000, CRC(3268e38b) )
+  ROM_REGION( 0x200000, REGION_CPU1, 0 )
+  ROM_LOAD16_BYTE( "epr-16812.ic32", 0x000000, 0x080000, CRC(091cf538) )
+  ROM_LOAD16_BYTE( "epr-16811.ic31", 0x000001, 0x080000, CRC(91f3b5f1) )
+  ROM_LOAD16_BYTE( "epr-16814.ic34", 0x100000, 0x080000, CRC(d8dc6323) )
+  ROM_LOAD16_BYTE( "epr-16813.ic33", 0x100001, 0x080000, CRC(3268e38b) )
 
-	ROM_REGION( 0x040000, REGION_SOUND1, 0 )
-	ROM_LOAD( "epr-16810.ic4", 0x000000, 0x040000, CRC(90af7301) )
+  ROM_REGION( 0x040000, REGION_SOUND1, 0 )
+  ROM_LOAD( "epr-16810.ic4", 0x000000, 0x040000, CRC(90af7301) )
 ROM_END
 
 ROM_START( ooparts ) /* Oo Parts (c)1992 Sega / Success */
-	ROM_REGION( 0x200000, REGION_CPU1, 0 )
-	ROM_LOAD16_BYTE( "epr-15614.ic32", 0x000000, 0x080000, CRC(8dcf2940)  )
-	ROM_LOAD16_BYTE( "epr-15613.ic31", 0x000001, 0x080000, CRC(35381899)  )
-	ROM_LOAD16_BYTE( "mpr-15616.ic34", 0x100000, 0x080000, CRC(7192ac29)  )
-	ROM_LOAD16_BYTE( "mpr-15615.ic33", 0x100001, 0x080000, CRC(42755dc2)  )
+  ROM_REGION( 0x200000, REGION_CPU1, 0 )
+  ROM_LOAD16_BYTE( "epr-15614.ic32", 0x000000, 0x080000, CRC(8dcf2940)  )
+  ROM_LOAD16_BYTE( "epr-15613.ic31", 0x000001, 0x080000, CRC(35381899)  )
+  ROM_LOAD16_BYTE( "mpr-15616.ic34", 0x100000, 0x080000, CRC(7192ac29)  )
+  ROM_LOAD16_BYTE( "mpr-15615.ic33", 0x100001, 0x080000, CRC(42755dc2)  )
 
-	ROM_REGION( 0x040000, REGION_SOUND1, 0 )
-	ROM_LOAD( "epr-15617.ic4", 0x000000, 0x040000, CRC(e09961f6)  )
+  ROM_REGION( 0x040000, REGION_SOUND1, 0 )
+  ROM_LOAD( "epr-15617.ic4", 0x000000, 0x040000, CRC(e09961f6)  )
 ROM_END
 
 ROM_START( twinsqua ) /* Twin Squash  (c)1991 Sega */
-	ROM_REGION( 0x200000, REGION_CPU1, 0 )
-	ROM_LOAD16_BYTE( "ep14657.32", 0x000000, 0x040000, CRC(becbb1a1) SHA1(787b1a4bf420186d05b5448582f6492e40d394fa) )
-	ROM_LOAD16_BYTE( "ep14656.31", 0x000001, 0x040000, CRC(411906e7) SHA1(68a4e66b9e18499d77cdb584470f35f67edec6fd) )
+  ROM_REGION( 0x200000, REGION_CPU1, 0 )
+  ROM_LOAD16_BYTE( "ep14657.32", 0x000000, 0x040000, CRC(becbb1a1) SHA1(787b1a4bf420186d05b5448582f6492e40d394fa) )
+  ROM_LOAD16_BYTE( "ep14656.31", 0x000001, 0x040000, CRC(411906e7) SHA1(68a4e66b9e18499d77cdb584470f35f67edec6fd) )
 
-	ROM_REGION( 0x020000, REGION_SOUND1, 0 )
-	ROM_LOAD( "ep14588.4", 0x000000, 0x020000, CRC(5a9b6881) SHA1(d86ec7f569fae5a1ce93a1cf40998cbb13726e0c) )
+  ROM_REGION( 0x020000, REGION_SOUND1, 0 )
+  ROM_LOAD( "ep14588.4", 0x000000, 0x020000, CRC(5a9b6881) SHA1(d86ec7f569fae5a1ce93a1cf40998cbb13726e0c) )
 ROM_END
 
 
@@ -1201,50 +1204,50 @@ ROM_END
 
 static void common_init(const UINT32 *table)
 {
-	prot_table = table;
-	bloxeed_sound = 0;
+  prot_table = table;
+  bloxeed_sound = 0;
 
-	state_save_register_UINT8 ("genesis", 0, "Int 2 Status", &irq2_int, 1);
-	state_save_register_UINT8 ("genesis", 0, "Int 4 Status", &scanline_int, 1);
-	state_save_register_UINT8 ("genesis", 0, "Int 6 Status", &vblank_int, 1);
+  state_save_register_UINT8 ("genesis", 0, "Int 2 Status", &irq2_int, 1);
+  state_save_register_UINT8 ("genesis", 0, "Int 4 Status", &scanline_int, 1);
+  state_save_register_UINT8 ("genesis", 0, "Int 6 Status", &vblank_int, 1);
 
-	state_save_register_UINT8("C2_IO", 0, "I/O Writes", misc_io_data, 0x10);
-	state_save_register_UINT8("C2 Protection", 0, "Write Buffer", &prot_write_buf, 1);
-	state_save_register_UINT8("C2 Protection", 0, "Read Buffer", &prot_read_buf, 1);
+  state_save_register_UINT8("C2_IO", 0, "I/O Writes", misc_io_data, 0x10);
+  state_save_register_UINT8("C2 Protection", 0, "Write Buffer", &prot_write_buf, 1);
+  state_save_register_UINT8("C2 Protection", 0, "Read Buffer", &prot_read_buf, 1);
 }
 
 
 static DRIVER_INIT( twinsqua )
 {
-	static const UINT32 table[256/8] =
-	{
-		0xbb33aa22, 0xffffeeee, 0xa820bb33, 0xfd75ee66,
-		0xbb33bb33, 0xbbbbbbbb, 0xa820aa22, 0xb931bb33,
-		0x33bb22aa, 0xffffeeee, 0x22aa31b9, 0x77ff64ec,
-		0x33bb33bb, 0xbbbbbbbb, 0x22aa20a8, 0x33bb31b9,
-		0xbb33aa22, 0xffffeeee, 0xec64ff77, 0xb931aa22,
-		0xbb33bb33, 0xbbbbbbbb, 0xec64ee66, 0xfd75ff77,
-		0x33bb22aa, 0xffffeeee, 0x66ee75fd, 0x33bb20a8,
-		0x33bb33bb, 0xbbbbbbbb, 0x66ee64ec, 0x77ff75fd
-	};
-	common_init(table);
+  static const UINT32 table[256/8] =
+  {
+    0xbb33aa22, 0xffffeeee, 0xa820bb33, 0xfd75ee66,
+    0xbb33bb33, 0xbbbbbbbb, 0xa820aa22, 0xb931bb33,
+    0x33bb22aa, 0xffffeeee, 0x22aa31b9, 0x77ff64ec,
+    0x33bb33bb, 0xbbbbbbbb, 0x22aa20a8, 0x33bb31b9,
+    0xbb33aa22, 0xffffeeee, 0xec64ff77, 0xb931aa22,
+    0xbb33bb33, 0xbbbbbbbb, 0xec64ee66, 0xfd75ff77,
+    0x33bb22aa, 0xffffeeee, 0x66ee75fd, 0x33bb20a8,
+    0x33bb33bb, 0xbbbbbbbb, 0x66ee64ec, 0x77ff75fd
+  };
+  common_init(table);
 }
 
 
 static DRIVER_INIT( ooparts )
 {
-	static const UINT32 table[256/8] =
-	{
-		0x91ddd19d, 0x91ddd19d, 0xd4dc949c, 0xf6feb6be,
-		0x91bbd1fb, 0x91bbd1fb, 0xd4fe94be, 0xf6feb6be,
-		0x80cce2ae, 0x88cceaae, 0xc5cda7af, 0xefef8d8d,
-		0x91bbf3d9, 0x99bbfbd9, 0xd4feb69c, 0xfefe9c9c,
-		0x5d55959d, 0x5d55959d, 0x5c54949c, 0x7e76b6be,
-		0x5d7795bf, 0x5d7795bf, 0x5c7694be, 0x7e76b6be,
-		0x5d55b7bf, 0x4444aeae, 0x5c54b6be, 0x67678d8d,
-		0x5d77b79d, 0x5577bf9d, 0x5c76b69c, 0x76769c9c
-	};
-	common_init(table);
+  static const UINT32 table[256/8] =
+  {
+    0x91ddd19d, 0x91ddd19d, 0xd4dc949c, 0xf6feb6be,
+    0x91bbd1fb, 0x91bbd1fb, 0xd4fe94be, 0xf6feb6be,
+    0x80cce2ae, 0x88cceaae, 0xc5cda7af, 0xefef8d8d,
+    0x91bbf3d9, 0x99bbfbd9, 0xd4feb69c, 0xfefe9c9c,
+    0x5d55959d, 0x5d55959d, 0x5c54949c, 0x7e76b6be,
+    0x5d7795bf, 0x5d7795bf, 0x5c7694be, 0x7e76b6be,
+    0x5d55b7bf, 0x4444aeae, 0x5c54b6be, 0x67678d8d,
+    0x5d77b79d, 0x5577bf9d, 0x5c76b69c, 0x76769c9c
+  };
+  common_init(table);
 }
 
 

@@ -572,6 +572,8 @@ endif
 
 ifeq ($(BIGENDIAN), 1)
 	PLATCFLAGS += -DMSB_FIRST
+else 
+	PLATCFLAGS += -DLSB_FIRST
 endif
 
 # End of architecture-specific flags ######################
